@@ -7,6 +7,15 @@
 
 直接双击使用浏览器打开即可使用。
 
+<img width="1615" height="890" alt="image" src="https://github.com/user-attachments/assets/a29551b9-efab-4977-8b8b-59d3486c07a4" />
+
+<img width="1622" height="704" alt="image" src="https://github.com/user-attachments/assets/3c632aeb-65bb-4e5d-890a-f3ccbbee78c4" />
+
+<img width="1579" height="713" alt="image" src="https://github.com/user-attachments/assets/c49a3067-f582-4974-bb63-077bf3f398cc" />
+
+
+
+
 
 这个项目主要实现以下功能：
 
