@@ -1,11 +1,13 @@
 本项目是一款快速把一段文字做成一张精美卡片的工具，输入文案，点击生成、3 秒出图的本地工具。
-
+Enter text, generate an image in seconds. Professional, beautiful, and efficient.
 
 我们常常会遇到一些值得记录和分享的文字：一句励志的话、一段书摘、一条经验总结……但把文字直接丢到社交平台上，但往往不够直观、不够美观，也很难被人记住。于是，很多人会选择把文字做成图片卡片，再配上背景和排版，这样更有氛围感、更容易传播。这个就是本项目的初衷。
 
 
 
 直接双击使用浏览器打开即可使用。
+
+<img width="1600" height="881" alt="image" src="https://github.com/user-attachments/assets/acdb3aeb-db45-4c04-88e4-f233aeaa460b" />
 
 <img width="1615" height="890" alt="image" src="https://github.com/user-attachments/assets/a29551b9-efab-4977-8b8b-59d3486c07a4" />
 
