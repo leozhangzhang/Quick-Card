@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Card v40.6 - Interactive Redesign</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Long+Cang&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@300;400;700&family=Noto+Serif+SC:wght@400;700&family=ZCOOL+KuaiLe&family=Zhi+Mang+Xing&family=ZCOOL+XiaoWei&family=LXGW+WenKai+Mono+TC&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --card-padding-v: 12%;
+            --card-padding-h: 8%;
+        }
+        .font-noto-serif { font-family: 'Noto Serif SC', serif; }
+        .font-noto-sans { font-family: 'Noto Sans SC', sans-serif; }
+        .font-ma-shan { font-family: 'Ma Shan Zheng', cursive; }
+        .font-zcool-kuai { font-family: 'ZCOOL KuaiLe', cursive; }
+        .font-long-cang { font-family: 'Long Cang', cursive; }
+        .font-zhi-mang { font-family: 'Zhi Mang Xing', cursive; }
+        .font-zcool-xiao { font-family: 'ZCOOL XiaoWei', sans-serif; }
+        .font-lxgw { font-family: 'LXGW WenKai Mono TC', monospace; }
+
+        body { background-color: #f8f9fa; }
+
+        .card-container {
+            width: 100%; position: relative;
+            transition: all 0.3s ease; overflow: hidden;
+            background-size: cover; background-position: center;
+            display: flex; flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+       
+        .card-container.has-image::before {
+            content: ''; position: absolute;
+            inset: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.65);
+            pointer-events: none; transition: background-color 0.3s;
+        }
+
+        .card-container.has-image:hover::before { background-color: rgba(0,0,0,0.15); }
+
+        .card-header, .card-footer {
+            position: absolute; z-index: 3;
+            width: calc(100% - (2 * var(--card-padding-h)));
+            left: var(--card-padding-h);
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: clamp(10px, 2.5vw, 14px); opacity: 0.8;
+            pointer-events: none;
+        }
+        .card-header { top: calc(var(--card-padding-v) / 2); }
+        .card-footer { bottom: calc(var(--card-padding-v) / 2); }
+        .card-logo-container { height: 1.5em; display: flex; align-items: center; }
+        .card-logo-container img { max-height: 100%; width: auto; }
+        .card-qr-code {
+             width: 12%; max-width: 60px; height: auto;
+             background: white; padding: 4px; border-radius: 4px;
+        }
+
+        .text-container {
+            position: relative; z-index: 2;
+            width: 100%; height: 100%; flex-grow: 1;
+            display: flex; flex-direction: column;
+            padding: var(--card-padding-v) var(--card-padding-h);
+            box-sizing: border-box;
+        }
+        .text-fitter { transition: transform 0.2s ease-out; width: 100%; }
+        .text-layer {
+            white-space: pre-wrap; transition: all 0.2s ease-out;
+            position: relative; width: 100%;
+        }
+        .has-image .text-layer { 
+            text-shadow: 0 1px 6px rgba(0,0,0,0.7); 
+        }
+        .card-title { font-weight: 700; margin-bottom: 0.75em; line-height: 1.3; font-size: 1.6em; }
+        .card-body { line-height: 1.8; font-size: 1em; }
+        .card-signature { opacity: 0.9; margin-top: 1.5em; font-size: 1em; }
+        
+        .layout-center .text-container { justify-content: center; }
+        .layout-bottom .text-container { justify-content: flex-end; }
+        .layout-top .text-container { justify-content: flex-start; }
+
+        .layout-free .text-container { display: none; }
+        .layout-free .text-layer {
+            position: absolute;
+            cursor: grab;
+            border: 2px dashed transparent;
+            padding: 8px; 
+            margin: -8px;
+            min-width: 50px;
+            transform-origin: center center;
+        }
+        .layout-free .text-layer.selected { border-color: rgba(0, 123, 255, 0.8); z-index: 10; }
+        .layout-free .text-layer.dragging { cursor: grabbing; user-select: none; z-index: 11; }
+        
+        .resize-handle {
+            position: absolute; width: 16px; height: 16px; background-color: #fff;
+            border: 2px solid #007bff; border-radius: 50%; z-index: 12; display: none;
+            right: -8px; 
+            bottom: -8px;
+            cursor: nwse-resize; 
+        }
+        .layout-free .text-layer.selected .resize-handle { display: block; }
+        
+        .corner-scallop {
+            --corner-radius: 15px;
+            -webkit-mask: radial-gradient(circle at 0 0, #0000 var(--corner-radius), #000 0) 0 0,
+                          radial-gradient(circle at 100% 0, #0000 var(--corner-radius), #000 0) 100% 0,
+                          radial-gradient(circle at 0 100%, #0000 var(--corner-radius), #000 0) 0 100%,
+                          radial-gradient(circle at 100% 100%, #0000 var(--corner-radius), #000 0) 100% 100%;
+            -webkit-mask-size: 51% 51%; -webkit-mask-repeat: no-repeat;
+            mask: radial-gradient(circle at 0 0, #0000 var(--corner-radius), #000 0) 0 0,
+                  radial-gradient(circle at 100% 0, #0000 var(--corner-radius), #000 0) 100% 0,
+                  radial-gradient(circle at 0 100%, #0000 var(--corner-radius), #000 0) 0 100%,
+                  radial-gradient(circle at 100% 100%, #0000 var(--corner-radius), #000 0) 100% 100%;
+            mask-size: 51% 51%; mask-repeat: no-repeat;
+        }
+        .corner-inner-bevel { box-shadow: inset 0 0 0 10px #ffffff44; border: 1px solid rgba(0,0,0,0.1); }
+        .template-book {
+            background-color: #fdfaf3; border: 1px solid #e9e4d8;
+            box-shadow: 5px 5px 15px rgba(0,0,0,0.05), inset 3px 0 10px -5px rgba(0,0,0,0.1);
+            color: #4a4033;
+        }
+        .template-book::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+            width: 3px; background: linear-gradient(to right, #d8d1c1, #c8bfae, #d8d1c1);
+            border-right: 1px solid rgba(0,0,0,0.05); }
+
+        #text-input-wrapper { position: relative; }
+        #text-input-placeholder {
+            position: absolute; top: 0.75rem; left: 0.75rem; color: #a0aec0;
+            pointer-events: none; white-space: pre-wrap; transition: opacity 0.2s;
+            padding: 0.75rem; line-height: 1.5; letter-spacing: inherit;
+        }
+        .control-panel { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(0,0,0,0.05); }
+        .control-group-btn.active { background-color: #0d6efd; color: white;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.4); }
+        .mobile-view #output-container { max-width: 420px; margin: 0 auto; }
+        .pc-view #output-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    </style>
+</head>
+<body class="font-noto-sans text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 font-zcool-kuai">Quick Card <span class="text-2xl md:text-3xl text-indigo-500 align-middle">v40.6</span></h1>
+            <p class="text-gray-600 mt-2">Enter text, generate an image in seconds. Professional, beautiful, and efficient.</p>
+        </header>
+
+        <div class="lg:grid lg:grid-cols-12 lg:gap-8">
+            <aside class="lg:col-span-4 xl:col-span-3 mb-8 lg:mb-0 lg:sticky lg:top-8 self-start space-y-6">
+                <div class="bg-white p-5 rounded-2xl shadow-lg control-panel">
+                    <label class="block text-xl font-semibold mb-2 text-gray-800">1. Edit Content</label>
+                    <p class="text-xs text-gray-500 mb-3">First line is the title, <code class="text-indigo-500 bg-indigo-50 rounded px-1">---</code> separates signature, <code class="text-indigo-500 bg-indigo-50 rounded px-1">#</code> adds spacing.</p>
+                    <div id="text-input-wrapper">
+                        <div id="text-input-placeholder">Life Insights
+We are a generation that hasn't truly suffered, nor loved with all our might.
+---
+# # # DesignerMemo</div>
+                        <textarea id="text-input" rows="8" class="w-full p-3 border bg-transparent border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 transition relative z-10"></textarea>
+                    </div>
+                    
+                    <div class="mt-4 space-y-3">
+                         <div id="symbol-palette" class="flex flex-wrap gap-2 border-b pb-3 mb-3"></div>
+                         <input type="text" id="qr-code-input" class="w-full p-2.5 border border-gray-200 rounded-lg text-sm" placeholder="Add a website QR code to the card (Optional)">
+                        <div class="flex justify-between items-center text-sm">
+                            <label for="show-date-toggle" class="font-medium text-gray-700">Show Date</label>
+                            <input type="checkbox" id="show-date-toggle" checked class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-lg control-panel">
+                     <label class="block text-xl font-semibold mb-3 text-gray-800">Custom Logo</label>
+                     <input type="text" id="logo-text-input" class="w-full p-2.5 border border-gray-200 rounded-lg text-sm" placeholder="Enter Logo Text (e.g., Company Name)" value="Quick Card">
+                     <p class="text-center text-xs text-gray-500 my-2">or</p>
+                     <label for="logo-image-upload" class="w-full inline-block cursor-pointer bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-sm py-2 px-4 rounded-full text-center">
+                        Choose Logo Image
+                     </label>
+                     <input type="file" id="logo-image-upload" accept="image/*" class="hidden">
+                     <span id="logo-upload-filename" class="text-xs text-gray-500 mt-2 block text-center">No file chosen</span>
+                     <button id="remove-logo-image-btn" class="hidden w-full mt-3 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition text-sm">Remove Logo Image</button>
+                </div>
+                
+                <div class="bg-white p-5 rounded-2xl shadow-lg control-panel space-y-5">
+                    <div>
+                        <label class="block text-xl font-semibold mb-3 text-gray-800">2. Choose Layout</label>
+                        <div class="grid grid-cols-2 gap-3">
+                           <select id="aspect-ratio-select" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg" title="Select Size">
+                                <option value="9/16" selected>Mobile Portrait (9:16)</option> <option value="16/9">Desktop Landscape (16:9)</option>
+                                <option value="1/1">Social Media Square (1:1)</option> <option value="3/4">Classic Portrait (3:4)</option>
+                                <option value="4/3">Classic Landscape (4:3)</option>
+                            </select>
+                            <select id="corner-style-select" class="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg" title="Card Corners">
+                                <option value="rounded-3xl" selected>Rounded</option> <option value="rounded-none">Sharp</option>
+                                <option value="corner-scallop">Scalloped</option> <option value="corner-inner-bevel">Inner Bevel</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium mb-2 text-gray-700">Layout Mode</label>
+                        <div id="layout-controls" class="grid grid-cols-4 gap-2 text-center text-sm"></div>
+                    </div>
+                     <div>
+                        <label class="block text-lg font-medium mb-2 text-gray-700">Text Alignment</label>
+                        <div id="align-controls" class="grid grid-cols-3 gap-2 text-center text-sm"></div>
+                    </div>
+                </div>
+                 <div class="bg-white p-5 rounded-2xl shadow-lg control-panel">
+                     <label class="block text-xl font-semibold mb-3 text-gray-800">3. Upload Background</label>
+                     <label for="image-upload" class="w-full inline-block cursor-pointer bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-sm py-2 px-4 rounded-full text-center">
+                        Choose Background Image
+                     </label>
+                     <input type="file" id="image-upload" accept="image/*" class="hidden">
+                     <span id="image-upload-filename" class="text-xs text-gray-500 mt-2 block text-center">No file chosen</span>
+                     <button id="remove-image-btn" class="hidden w-full mt-3 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition">Remove Background Image</button>
+                 </div>
+            </aside>
+            
+            <main id="output-wrapper" class="lg:col-span-8 xl:col-span-9">
+                 <div class="flex justify-between items-center mb-4 pb-4 border-b">
+                    <h2 class="text-2xl font-bold text-center">Design Preview</h2>
+                     <div class="flex items-center space-x-2 bg-gray-200 p-1 rounded-full text-sm">
+                        <button id="pc-view-btn" class="px-4 py-1 rounded-full bg-white shadow">Desktop</button>
+                        <button id="mobile-view-btn" class="px-4 py-1 rounded-full text-gray-600">Mobile</button>
+                    </div>
+                </div>
+                <div id="preview-wrapper" class="mx-auto pc-view transition-all duration-300">
+                    <div id="output-container" class="gap-6 sm:gap-8 justify-items-center"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // No changes needed for the JavaScript logic
+    const dom = {
+        textInput: document.getElementById('text-input'),
+        textInputPlaceholder: document.getElementById('text-input-placeholder'),
+        qrCodeInput: document.getElementById('qr-code-input'),
+        showDateToggle: document.getElementById('show-date-toggle'),
+        imageUpload: document.getElementById('image-upload'),
+        removeImageBtn: document.getElementById('remove-image-btn'),
+        aspectRatioSelect: document.getElementById('aspect-ratio-select'),
+        cornerStyleSelect: document.getElementById('corner-style-select'),
+        outputContainer: document.getElementById('output-container'),
+        pcViewBtn: document.getElementById('pc-view-btn'),
+        mobileViewBtn: document.getElementById('mobile-view-btn'),
+        previewWrapper: document.getElementById('preview-wrapper'),
+        layoutControls: document.getElementById('layout-controls'),
+        alignControls: document.getElementById('align-controls'),
+        symbolPalette: document.getElementById('symbol-palette'),
+        logoTextInput: document.getElementById('logo-text-input'),
+        logoImageUpload: document.getElementById('logo-image-upload'),
+        removeLogoImageBtn: document.getElementById('remove-logo-image-btn'),
+    };
+
+    const state = {
+        uploadedImage: null,
+        logoImage: null,
+        selectedLayer: null,
+        freeLayoutStates: {},
+        currentLayout: 'layout-center',
+        textAlign: 'text-center',
+        currentDate: new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date()),
+        cornerStyle: 'rounded-3xl',
+        isMobileView: false,
+    };
+
+    const templates = [
+        { id: 'book', name: 'Book', bg: '', tc: '', tf: 'font-ma-shan', bf: 'font-noto-serif', sf: 'font-long-cang', special: 'template-book' },
+        { id: 'dark', name: 'Ink Black', bg: 'bg-gray-900', tc: 'text-white', tf: 'font-zcool-xiao', bf: 'font-noto-serif', sf: 'font-zhi-mang' },
+        { id: 'glass', name: 'Glass', bg: 'bg-gray-200', tc: 'text-gray-900', tf: 'font-noto-serif', bf: 'font-noto-sans', sf: 'font-long-cang', special: 'template-glass' },
+        { id: 'sunny', name: 'Sunny', bg: 'bg-gradient-to-br from-amber-300 to-orange-400', tc: 'text-white', tf: 'font-zcool-kuai', bf: 'font-zcool-kuai', sf: 'font-zhi-mang' },
+        { id: 'forest', name: 'Forest', bg: 'bg-gradient-to-br from-green-500 to-teal-600', tc: 'text-white', tf: 'font-noto-serif', bf: 'font-noto-sans', sf: 'font-long-cang' },
+        { id: 'cyber', name: 'Cyber', bg: 'bg-gradient-to-br from-purple-800 via-indigo-800 to-cyan-500', tc: 'text-cyan-300', tf: 'font-lxgw', bf: 'font-noto-sans', sf: 'font-zhi-mang' },
+    ];
+    
+    const parseText = (text) => {
+        let mainText = text, signatureText = '';
+        const sigSep = '---';
+        const sigIndex = text.indexOf(sigSep);
+        if (sigIndex !== -1) {
+            mainText = text.substring(0, sigIndex).trim();
+            signatureText = text.substring(sigIndex + sigSep.length).trim();
+        }
+        const lines = mainText.split('\n').filter(line => line.trim() !== '');
+        const hasTitle = lines.length > 1;
+        const titleText = hasTitle ? lines[0].trim() : '';
+        const bodyText = (hasTitle ? lines.slice(1).join('\n') : mainText).trim();
+        const spacingPattern = /#/g;
+        return { 
+            titleText: titleText.replace(spacingPattern, ' '), 
+            bodyText: bodyText.replace(spacingPattern, ' '), 
+            signatureText: signatureText.replace(spacingPattern, ' ') 
+        };
+    };
+
+    const updateAllCards = () => {
+        const rawText = dom.textInput.value.trim() === '' ? dom.textInputPlaceholder.textContent : dom.textInput.value;
+        const textContent = parseText(rawText);
+        const aspectRatio = dom.aspectRatioSelect.value;
+        const qrCodeUrl = dom.qrCodeInput.value.trim();
+        const showDate = dom.showDateToggle.checked;
+        const logoText = dom.logoTextInput.value.trim();
+        
+        document.querySelectorAll('.card-container').forEach(card => {
+            const parts = ['title', 'body', 'signature'];
+            parts.forEach(part => {
+                const el = card.querySelector(`.card-${part}`);
+                const textSpan = el.querySelector('.text-content'); 
+                const text = textContent[`${part}Text`];
+                if (textSpan) { textSpan.textContent = text; }
+                el.style.display = text ? '' : 'none';
+            });
+
+            const logoContainer = card.querySelector('.card-logo-container');
+            logoContainer.innerHTML = '';
+            if (state.logoImage) {
+                const img = document.createElement('img');
+                img.src = state.logoImage;
+                logoContainer.appendChild(img);
+            } else if (logoText) {
+                const span = document.createElement('span');
+                span.className = 'font-zcool-kuai';
+                span.textContent = logoText;
+                logoContainer.appendChild(span);
+            }
+
+            card.querySelector('.card-date').style.opacity = showDate ? 1 : 0;
+            const qrContainer = card.querySelector('.card-qr-code');
+            qrContainer.innerHTML = '';
+            qrContainer.style.opacity = qrCodeUrl ? 1 : 0;
+            if (qrCodeUrl) {
+                new QRCode(qrContainer, { text: qrCodeUrl, width: 60, height: 60, correctLevel: QRCode.CorrectLevel.H });
+            }
+
+            card.style.aspectRatio = aspectRatio;
+            card.classList.toggle('has-image', !!state.uploadedImage);
+            card.style.backgroundImage = state.uploadedImage ? `url(${state.uploadedImage})` : '';
+
+            ['layout-top', 'layout-center', 'layout-bottom', 'layout-free'].forEach(l => card.classList.remove(l));
+            card.classList.add(state.currentLayout);
+
+            ['rounded-3xl', 'rounded-none', 'corner-scallop', 'corner-inner-bevel'].forEach(c => card.classList.remove(c));
+            card.classList.add(state.cornerStyle);
+            
+            card.querySelectorAll('.text-layer, .text-fitter').forEach(el => {
+                ['text-left', 'text-center', 'text-right'].forEach(cls => el.classList.remove(cls));
+                el.classList.add(state.textAlign);
+            });
+
+            if (state.currentLayout === 'layout-free') {
+                initializeFreeLayoutParams(card);
+            } else {
+                fitTextInFixedLayout(card);
+            }
+        });
+    };
+    
+    const fitTextInFixedLayout = (card) => {
+        requestAnimationFrame(() => {
+            const textContainer = card.querySelector('.text-container');
+            const textFitter = card.querySelector('.text-fitter');
+            if (!textContainer || !textFitter) return;
+            textFitter.style.transform = 'scale(1)';
+            const containerHeight = textContainer.clientHeight;
+            const contentHeight = textFitter.scrollHeight;
+            if (contentHeight > containerHeight) {
+                textFitter.style.transform = `scale(${containerHeight / contentHeight})`;
+            }
+        });
+    };
+    
+    const applyFreeLayout = (card) => {
+         const cardState = state.freeLayoutStates[card.id];
+         if (!cardState) return;
+         const cardRect = card.getBoundingClientRect();
+         if(cardRect.width === 0 || cardRect.height === 0) return;
+
+         Object.entries(cardState).forEach(([part, data]) => {
+            if (typeof data !== 'object') return;
+            const el = card.querySelector(`.card-${part}`);
+            if (el) {
+                const elWidth = cardRect.width * data.w;
+                const finalLeft = Math.round(cardRect.width * data.x);
+                const finalTop = Math.round(cardRect.height * data.y);
+                
+                el.style.left = `${finalLeft}px`;
+                el.style.top = `${finalTop}px`;
+                el.style.width = `${Math.round(elWidth)}px`;
+                el.style.fontSize = `${cardRect.height * data.size}px`; 
+                el.style.transform = `translate(-50%, -50%)`;
+            }
+         });
+    };
+    
+    const initializeFreeLayoutParams = (card) => {
+        const cardId = card.id;
+        if (state.freeLayoutStates[cardId]?.userModified) {
+            requestAnimationFrame(() => applyFreeLayout(card));
+            return;
+        }
+
+        requestAnimationFrame(() => {
+            const cardRect = card.getBoundingClientRect();
+            if (cardRect.height === 0) return;
+            state.freeLayoutStates[cardId] = {};
+
+            const visibleLayers = Array.from(card.querySelectorAll('.text-layer')).filter(el => el.style.display !== 'none');
+            visibleLayers.forEach(el => {
+                const part = el.dataset.part;
+                const isTitle = part === 'title';
+                const initialWidth = 0.8;
+                state.freeLayoutStates[cardId][part] = { 
+                    x: 0.5, y: 0.5, 
+                    w: initialWidth, 
+                    size: isTitle ? 0.07 : 0.04 
+                };
+                el.style.width = `${Math.round(cardRect.width * initialWidth)}px`;
+                el.style.fontSize = `${cardRect.height * state.freeLayoutStates[cardId][part].size}px`;
+            });
+
+            requestAnimationFrame(() => {
+                const layerData = visibleLayers.map(el => ({ part: el.dataset.part, height: el.offsetHeight }));
+                const totalContentHeight = layerData.reduce((sum, item) => sum + item.height, 0);
+                const totalMarginHeight = (layerData.length - 1) * (0.04 * cardRect.height);
+                const totalBlockHeight = totalContentHeight + totalMarginHeight;
+                let currentY = Math.max(20, (cardRect.height - totalBlockHeight) / 2);
+
+                layerData.forEach(item => {
+                    const elementCenterPx = currentY + item.height / 2;
+                    state.freeLayoutStates[cardId][item.part].y = elementCenterPx / cardRect.height;
+                    currentY += item.height + (0.04 * cardRect.height);
+                });
+
+                state.freeLayoutStates[cardId].userModified = false;
+                applyFreeLayout(card);
+            });
+        });
+    };
+    
+    const switchLayoutMode = (newLayout) => {
+        state.currentLayout = newLayout;
+        document.querySelectorAll('.card-container').forEach(card => {
+            const textFitter = card.querySelector('.text-fitter');
+            card.querySelectorAll('.text-layer').forEach(el => {
+                el.style.cssText = ''; 
+                el.classList.remove('selected', 'dragging');
+                if (newLayout === 'layout-free') {
+                    if (el.parentElement !== card) card.appendChild(el);
+                } else {
+                    if (el.parentElement !== textFitter) textFitter.appendChild(el);
+                }
+            });
+            if (newLayout === 'layout-free' && state.freeLayoutStates[card.id]) {
+                state.freeLayoutStates[card.id].userModified = false;
+            }
+        });
+        setTimeout(updateAllCards, 0);
+    };
+
+    const makeInteractive = (element, card) => {
+        let dragState = {};
+        
+        const startInteraction = (e) => {
+            if (state.currentLayout !== 'layout-free') return;
+            e.stopPropagation();
+            if (e.type.startsWith('touch')) e.preventDefault();
+            if (state.selectedLayer !== element) selectLayer(element);
+
+            const event = e.type.startsWith('touch') ? e.touches[0] : e;
+            const part = element.dataset.part;
+            const partState = state.freeLayoutStates[card.id]?.[part];
+
+            if (!partState) return;
+            state.freeLayoutStates[card.id].userModified = true;
+
+            dragState = {
+                isResizing: e.target.classList.contains('resize-handle'),
+                startX: event.clientX,
+                startY: event.clientY,
+                cardRect: card.getBoundingClientRect(),
+                partState: partState, 
+                originalW: partState.w,
+                originalSize: partState.size,
+                originalX: partState.x,
+                originalY: partState.y
+            };
+            
+            if (!dragState.isResizing) element.classList.add('dragging');
+
+            document.addEventListener('mousemove', onMove); 
+            document.addEventListener('touchmove', onMove, { passive: false });
+            document.addEventListener('mouseup', onEnd); 
+            document.addEventListener('touchend', onEnd);
+        };
+
+        const onMove = (e) => {
+            if (!dragState.partState) return;
+            e.preventDefault();
+            const event = e.type.startsWith('touch') ? e.touches[0] : e;
+            const dx = event.clientX - dragState.startX; 
+            const dy = event.clientY - dragState.startY;
+            const { cardRect, partState } = dragState;
+
+            if (dragState.isResizing) {
+                const diagonalChange = (dx + dy) / 2;
+                const widthChangeRatio = diagonalChange / cardRect.width;
+                const newWidthRatio = Math.max(0.1, dragState.originalW + widthChangeRatio);
+                const scaleFactor = newWidthRatio / dragState.originalW;
+                partState.w = newWidthRatio;
+                partState.size = dragState.originalSize * scaleFactor;
+            } else {
+                partState.x = dragState.originalX + dx / cardRect.width;
+                partState.y = dragState.originalY + dy / cardRect.height;
+            }
+            applyFreeLayout(card);
+        };
+
+        const onEnd = () => {
+            element.classList.remove('dragging'); 
+            dragState = {};
+            document.removeEventListener('mousemove', onMove); 
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup', onEnd); 
+            document.removeEventListener('touchend', onEnd);
+        };
+        element.addEventListener('mousedown', startInteraction);
+        element.addEventListener('touchstart', startInteraction, { passive: false });
+    };
+    
+    const selectLayer = (element) => {
+        if (state.selectedLayer) state.selectedLayer.classList.remove('selected');
+        state.selectedLayer = element;
+        if (element) state.selectedLayer.classList.add('selected');
+    };
+    
+    const initializeApp = () => {
+        dom.outputContainer.innerHTML = '';
+        templates.forEach((t, i) => {
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'card-wrapper flex flex-col items-center w-full';
+            const card = document.createElement('div');
+            card.id = `card-${i}`;
+            card.dataset.templateId = t.id;
+            card.className = `card-container ${t.bg} ${t.tc} ${t.special || ''}`;
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-logo-container"></div>
+                    <span class="card-date">${state.currentDate}</span>
+                </div>
+                <div class="text-container"><div class="text-fitter"></div></div>
+                <div class="card-footer">
+                    <span></span><div class="card-qr-code"></div>
+                </div>`;
+            const textFitter = card.querySelector('.text-fitter');
+            ['title', 'body', 'signature'].forEach(part => {
+                const el = document.createElement('div');
+                el.className = `text-layer card-${part} ${t[`${part.charAt(0)}f`]}`;
+                el.dataset.part = part;
+                const textSpan = document.createElement('span');
+                textSpan.className = 'text-content';
+                el.appendChild(textSpan);
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                el.appendChild(resizeHandle);
+                makeInteractive(el, card);
+                textFitter.appendChild(el);
+            });
+            new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    if (state.currentLayout !== 'layout-free') {
+                       fitTextInFixedLayout(entry.target);
+                    } else {
+                       if (state.freeLayoutStates[entry.target.id]?.userModified) {
+                            applyFreeLayout(entry.target);
+                       } else {
+                            initializeFreeLayoutParams(entry.target);
+                       }
+                    }
+                }
+            }).observe(card);
+            const downloadBtn = document.createElement('button');
+            downloadBtn.textContent = `Download "${t.name}"`;
+            downloadBtn.className = 'mt-4 bg-gray-700 text-white py-2 px-5 rounded-full hover:bg-gray-800 transition text-sm font-semibold';
+            downloadBtn.onclick = () => downloadCard(card.id, t.name);
+            cardWrapper.append(card, downloadBtn);
+            dom.outputContainer.appendChild(cardWrapper);
+        });
+        const layouts = [ { id: 'layout-top', name: 'Top' }, { id: 'layout-center', name: 'Center' }, { id: 'layout-bottom', name: 'Bottom' }, { id: 'layout-free', name: 'Free' }];
+        const aligns = [ { id: 'text-left', name: 'Left' }, { id: 'text-center', name: 'Center' }, { id: 'text-right', name: 'Right' }];
+        const createControlButtons = (container, items, stateKey, callback) => {
+            container.innerHTML = '';
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.textContent = item.name;
+                btn.className = 'p-2 bg-gray-100 rounded-lg control-group-btn';
+                if(item.id === state[stateKey]) btn.classList.add('active');
+                btn.onclick = () => {
+                    if (container.querySelector('.active')) container.querySelector('.active').classList.remove('active');
+                    btn.classList.add('active');
+                    callback(item.id);
+                };
+                container.appendChild(btn);
+            });
+        };
+        createControlButtons(dom.layoutControls, layouts, 'currentLayout', switchLayoutMode);
+        createControlButtons(dom.alignControls, aligns, 'textAlign', id => { state.textAlign = id; updateAllCards(); });
+        ['🌟', '💡', '📖', '🖋️', '🤔', '🚀', '❤️', '✅'].forEach(symbol => {
+            const btn = document.createElement('button');
+            btn.textContent = symbol; btn.className = 'p-1 bg-gray-100 rounded-md hover:bg-gray-200 transition text-lg';
+            btn.onclick = () => { dom.textInput.value += symbol; dom.textInput.dispatchEvent(new Event('input')); };
+            dom.symbolPalette.appendChild(btn);
+        });
+        setupEventListeners();
+        setTimeout(updateAllCards, 50);
+    };
+    
+    const setupEventListeners = () => {
+        [dom.textInput, dom.qrCodeInput, dom.aspectRatioSelect, dom.showDateToggle, dom.cornerStyleSelect, dom.logoTextInput].forEach(el => {
+            el.addEventListener('input', updateAllCards);
+        });
+        dom.textInput.addEventListener('input', () => { dom.textInputPlaceholder.style.opacity = dom.textInput.value ? '0' : '1'; });
+        dom.cornerStyleSelect.addEventListener('change', (e) => { state.cornerStyle = e.target.value; updateAllCards(); });
+
+        const handleImageUpload = (file, callback) => {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => callback(e.target.result);
+            reader.readAsDataURL(file);
+        };
+        dom.imageUpload.addEventListener('change', (e) => handleImageUpload(e.target.files[0], (result) => {
+            state.uploadedImage = result; dom.removeImageBtn.classList.remove('hidden'); updateAllCards();
+        }));
+        dom.removeImageBtn.addEventListener('click', () => {
+            state.uploadedImage = null; dom.imageUpload.value = ''; dom.removeImageBtn.classList.add('hidden');
+            document.getElementById('image-upload-filename').textContent = 'No file chosen';
+            updateAllCards();
+        });
+        dom.logoImageUpload.addEventListener('change', (e) => handleImageUpload(e.target.files[0], (result) => {
+            state.logoImage = result; dom.removeLogoImageBtn.classList.remove('hidden'); updateAllCards();
+        }));
+        dom.removeLogoImageBtn.addEventListener('click', () => {
+            state.logoImage = null; dom.logoImageUpload.value = ''; dom.removeLogoImageBtn.classList.add('hidden');
+            document.getElementById('logo-upload-filename').textContent = 'No file chosen';
+            updateAllCards();
+        });
+        
+        const setupFileInputListeners = () => {
+            const handleFileSelect = (inputId, spanId) => {
+                const input = document.getElementById(inputId);
+                const span = document.getElementById(spanId);
+                if (!input || !span) return;
+                
+                input.addEventListener('change', () => {
+                    if (input.files && input.files.length > 0) {
+                        span.textContent = input.files[0].name;
+                    } else {
+                        span.textContent = 'No file chosen';
+                    }
+                });
+            };
+
+            handleFileSelect('logo-image-upload', 'logo-upload-filename');
+            handleFileSelect('image-upload', 'image-upload-filename');
+        };
+
+        setupFileInputListeners();
+
+        const switchView = (isPc) => {
+             state.isMobileView = !isPc;
+             dom.previewWrapper.className = `mx-auto ${isPc ? 'pc-view' : 'mobile-view'}`;
+             dom.pcViewBtn.classList.toggle('bg-white', isPc); dom.pcViewBtn.classList.toggle('shadow', isPc);
+             dom.mobileViewBtn.classList.toggle('bg-white', !isPc); dom.mobileViewBtn.classList.toggle('shadow', !isPc);
+             setTimeout(updateAllCards, 50);
+        };
+        dom.pcViewBtn.addEventListener('click', () => switchView(true));
+        dom.mobileViewBtn.addEventListener('click', () => switchView(false));
+        document.addEventListener('click', (e) => { if (!e.target.closest('.text-layer')) selectLayer(null); });
+    };
+    
+    const downloadCard = async (cardId, templateName) => {
+        selectLayer(null);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        try {
+            const cardElement = document.getElementById(cardId);
+            if (!cardElement) throw new Error("Card element not found");
+            
+            const canvas = await html2canvas(cardElement, { 
+                useCORS: true, 
+                backgroundColor: null, 
+                scale: 3,
+                logging: true 
+            });
+
+            const link = document.createElement('a');
+            link.download = `QuickCard-${templateName}-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+        } catch(err) {
+            console.error("Image generation failed!", err);
+            alert(`Image generation failed!\n\nError details: ${err.message}\n\nThis is often caused by network issues failing to load resources (like fonts), or browser security restrictions. Please check your network connection, try operating in a non-incognito mode, and check the browser console for more details.`);
+        }
+    };
+    
+    initializeApp();
+});
+</script>
+</body>
+</html>
+
